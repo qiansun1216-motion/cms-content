@@ -1,123 +1,128 @@
 # CMS Content Manager
 
-一个基于 React 和 Material-UI 的 CMS 内容管理系统，功能设计参考 Strapi，支持 Content Type 定义和内容管理。
+A CMS content management system based on React and Material-UI, designed with reference to Strapi functionality. Supports Content Type definition and content management.
 
-## 功能特性
+## Features
 
-### Content Definition 页面
-- ✅ 创建和编辑 Content Type
-- ✅ 定义字段类型（文本、数字、日期、布尔值、邮箱、URL、多行文本、关系）
-- ✅ 字段属性设置（名称、标签、类型、默认值、验证规则）
-- ✅ 字段验证（必填、长度限制、数值范围等）
-- ✅ 删除 Content Type
+### Content Definition Page
+- ✅ Create and edit Content Types
+- ✅ Define field types (Text, Number, Date, Boolean, Email, URL, Textarea, Relation)
+- ✅ Field property settings (Name, Label, Type, Default Value, Validation Rules)
+- ✅ Field validation (Required, Length Limits, Number Range, etc.)
+- ✅ Delete Content Types
 
-### Content 页面
-- ✅ 查看 Content Type 的所有内容项
-- ✅ 创建新内容项
-- ✅ 编辑现有内容项
-- ✅ 删除内容项
-- ✅ Workflow 支持：
-  - 保存后自动变为 `draft` 状态
-  - 可以发布内容（`draft` → `published`）
-  - 可以取消发布（`published` → `draft`）
+### Content Page
+- ✅ View all content items for a Content Type
+- ✅ Create new content items
+- ✅ Edit existing content items
+- ✅ Delete content items
+- ✅ Workflow support:
+  - Automatically becomes `draft` status after saving
+  - Can publish content (`draft` → `published`)
+  - Can unpublish content (`published` → `draft`)
 
-## 技术栈
+## Tech Stack
 
-- **React 18** - UI 框架
-- **Material-UI (MUI) 5** - UI 组件库
-- **React Router 6** - 路由管理
-- **Vite** - 构建工具
-- **localStorage** - 数据持久化
+- **React 18** - UI Framework
+- **Material-UI (MUI) 5** - UI Component Library
+- **TypeScript** - Type Safety
+- **React Router 6** - Routing
+- **Vite** - Build Tool
+- **localStorage** - Data Persistence
 
-## 安装和运行
+## Installation and Running
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 开发模式
+### Development Mode
 
 ```bash
 npm run dev
 ```
 
-应用将在 `http://localhost:5173` 启动
+The application will start at `http://localhost:5173`
 
-### 构建生产版本
+### Build for Production
 
 ```bash
 npm run build
 ```
 
-### 预览生产构建
+### Preview Production Build
 
 ```bash
 npm run preview
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 src/
-├── components/          # 通用组件
-│   └── Layout.jsx      # 布局组件
-├── pages/              # 页面组件
-│   ├── HomePage.jsx    # 首页
-│   ├── ContentDefinitionPage.jsx  # Content Definition 页面
-│   └── ContentPage.jsx # Content 页面
-├── store/              # 状态管理
-│   └── contentStore.js # Content 数据存储
-├── App.jsx             # 主应用组件
-├── main.jsx            # 入口文件
-└── index.css           # 全局样式
+├── components/          # Common components
+│   └── Layout.tsx      # Layout component
+├── pages/              # Page components
+│   ├── ContentDefinitionPage.tsx  # Content Definition list page
+│   ├── ContentTypeEditPage.tsx    # Content Type edit page
+│   ├── ContentPage.tsx            # Content list page
+│   └── ContentEditPage.tsx        # Content edit page
+├── store/              # State management
+│   └── contentStore.ts # Content data store
+├── types/              # TypeScript type definitions
+│   └── index.ts        # Type definitions
+├── App.tsx             # Main app component
+├── main.tsx            # Entry point
+└── index.css           # Global styles
 ```
 
-## 使用说明
+## Usage
 
-### 创建 Content Type
+### Create Content Type
 
-1. 点击首页的"创建 Content Type"按钮
-2. 填写 Content Type 的名称和描述
-3. 点击"添加字段"按钮定义字段
-4. 为每个字段设置：
-   - 字段名称（唯一标识符）
-   - 字段标签（显示名称）
-   - 字段类型
-   - 是否必填
-   - 默认值（可选）
-   - 验证规则（根据字段类型不同）
-5. 点击"保存"保存 Content Type
+1. Click the "Create Content Type" button on the Content Definitions page
+2. Fill in the Content Type name and description
+3. Click "Add Field" button to define fields
+4. For each field, set:
+   - Field Name (unique identifier)
+   - Field Label (display name)
+   - Field Type
+   - Required (yes/no)
+   - Default Value (optional)
+   - Validation Rules (varies by field type)
+5. Click "Save" to save the Content Type
 
-### 管理内容
+### Manage Content
 
-1. 在首页点击 Content Type 卡片上的"查看内容"
-2. 点击"创建内容"按钮创建新内容项
-3. 表单会根据 Content Type 的字段定义自动生成
-4. 填写内容后点击"保存 (保存为草稿)"
-5. 内容保存后状态为 `draft`
-6. 通过操作菜单可以：
-   - 编辑内容
-   - 发布内容（`draft` → `published`）
-   - 取消发布（`published` → `draft`）
-   - 删除内容
+1. Click "View Content" on a Content Type card in the Content Definitions page
+2. Click "Create Content" button to create a new content item
+3. The form will be automatically generated based on the Content Type field definitions
+4. Fill in the content and click "Save (Save as Draft)"
+5. Content will be saved with `draft` status
+6. Through the action menu, you can:
+   - Edit content
+   - Publish content (`draft` → `published`)
+   - Unpublish content (`published` → `draft`)
+   - Delete content
 
-## 数据存储
+## Data Storage
 
-数据使用浏览器的 `localStorage` 进行持久化存储，包括：
-- Content Types 定义
-- Content 内容项
+Data is persisted using browser `localStorage`, including:
+- Content Types definitions
+- Content items
 
-## 设计特点
+## Design Features
 
-- 简洁现代的 Material Design 风格
-- 直观的用户界面
-- 完整的表单验证
-- 响应式设计
-- 清晰的状态管理
+- Clean and modern Material Design style
+- Intuitive user interface
+- Complete form validation
+- Responsive design
+- Clear state management
+- Left sidebar navigation
+- Dedicated pages for content editing (no modals)
 
-## 浏览器支持
+## Browser Support
 
-支持所有现代浏览器（Chrome, Firefox, Safari, Edge）
-
+Supports all modern browsers (Chrome, Firefox, Safari, Edge)
