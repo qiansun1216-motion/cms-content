@@ -4,8 +4,9 @@ import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import Layout from './components/Layout'
 import ContentDefinitionPage from './pages/ContentDefinitionPage'
+import ContentTypeEditPage from './pages/ContentTypeEditPage'
 import ContentPage from './pages/ContentPage'
-import HomePage from './pages/HomePage'
+import ContentEditPage from './pages/ContentEditPage'
 
 const theme = createTheme({
   palette: {
@@ -19,16 +20,20 @@ const theme = createTheme({
   },
 })
 
-function App() {
+function App(): JSX.Element {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Layout>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Navigate to="/content-definitions" replace />} />
           <Route path="/content-definitions" element={<ContentDefinitionPage />} />
+          <Route path="/content-definitions/new" element={<ContentTypeEditPage />} />
+          <Route path="/content-definitions/edit/:id" element={<ContentTypeEditPage />} />
           <Route path="/content/:contentTypeId" element={<ContentPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/content/:contentTypeId/new" element={<ContentEditPage />} />
+          <Route path="/content/:contentTypeId/edit/:contentId" element={<ContentEditPage />} />
+          <Route path="*" element={<Navigate to="/content-definitions" replace />} />
         </Routes>
       </Layout>
     </ThemeProvider>
@@ -36,4 +41,3 @@ function App() {
 }
 
 export default App
-
