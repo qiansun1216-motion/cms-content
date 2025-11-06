@@ -18,9 +18,11 @@ import {
   InputLabel,
   Paper,
   Chip,
+  Autocomplete,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder'
 import SaveIcon from '@mui/icons-material/Save'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import contentStore from '../store/contentStore'
@@ -67,6 +69,12 @@ function ContentEditPage(): JSX.Element | null {
           initialContent[field.name] = false
         } else if (field.type === 'number') {
           initialContent[field.name] = ''
+        } else if (field.type === 'relation') {
+          // Initialize relation field
+          const isMultiple =
+            field.relationConfig?.relationType === 'oneToMany' ||
+            field.relationConfig?.relationType === 'manyToMany'
+          initialContent[field.name] = isMultiple ? [] : ''
         } else if (field.type === 'component') {
           // Initialize component - array if repeatable, object if single
           if (field.repeatable) {
@@ -269,34 +277,150 @@ function ContentEditPage(): JSX.Element | null {
         const relatedContents = relatedContentType
           ? contentStore.getAllContents(relatedContentType.id)
           : []
+        const relationType = field.relationConfig?.relationType || 'oneToOne'
+        const displayField = field.relationConfig?.displayField
+
+        // Determine if multiple selection is allowed
+        const isMultiple =
+          relationType === 'oneToMany' || relationType === 'manyToMany'
+
+        // Get display value for a content item
+        const getDisplayValue = (item: Content): string => {
+          if (!displayField) {
+            // Fallback to first text field or ID
+            const firstTextField = relatedContentType?.fields?.find((f) =>
+              ['text', 'email'].includes(f.type)
+            )
+            if (firstTextField && item[firstTextField.name]) {
+              return String(item[firstTextField.name])
+            }
+            return item.id.slice(-8)
+          }
+          return item[displayField] ? String(item[displayField]) : item.id.slice(-8)
+        }
+
+        // Mock search function
+        const searchOptions = (searchText: string) => {
+          if (!searchText) return relatedContents
+          const lowerSearch = searchText.toLowerCase()
+          return relatedContents.filter((item) => {
+            const displayValue = getDisplayValue(item)
+            return displayValue.toLowerCase().includes(lowerSearch)
+          })
+        }
+
+        // Handle single select
+        if (!isMultiple) {
+          const selectedContent = relatedContents.find((c) => c.id === value)
+
+          return (
+            <Box>
+              <Autocomplete
+                options={relatedContents}
+                value={selectedContent || null}
+                onChange={(_, newValue) => {
+                  handleFieldChange(field.name, newValue?.id || '')
+                }}
+                getOptionLabel={(option) => getDisplayValue(option)}
+                isOptionEqualToValue={(option, val) => option.id === val.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={field.label}
+                    required={field.required}
+                    error={!!error}
+                    helperText={error}
+                  />
+                )}
+                filterOptions={(options, state) => {
+                  return searchOptions(state.inputValue)
+                }}
+                noOptionsText="No matching items found"
+                sx={{ mb: 1 }}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<CreateNewFolderIcon />}
+                onClick={() => {
+                  // UI placeholder for creating new related content
+                  alert(
+                    `Create new ${relatedContentType?.name || 'content'}. This would open a dialog to create new content.`
+                  )
+                }}
+              >
+                Create New {relatedContentType?.name || 'Content'}
+              </Button>
+            </Box>
+          )
+        }
+
+        // Handle multiple select
+        const selectedContents = Array.isArray(value)
+          ? relatedContents.filter((c) => value.includes(c.id))
+          : value
+          ? relatedContents.filter((c) => c.id === value)
+          : []
 
         return (
-          <FormControl fullWidth required={field.required} error={!!error}>
-            <InputLabel>{field.label}</InputLabel>
-            <Select
-              value={value || ''}
-              label={field.label}
-              onChange={(e) => handleFieldChange(field.name, e.target.value)}
+          <Box>
+            <Autocomplete
+              multiple
+              options={relatedContents}
+              value={selectedContents}
+              onChange={(_, newValue) => {
+                handleFieldChange(
+                  field.name,
+                  newValue.map((item) => item.id)
+                )
+              }}
+              getOptionLabel={(option) => getDisplayValue(option)}
+              isOptionEqualToValue={(option, val) => option.id === val.id}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={field.label}
+                  required={field.required}
+                  error={!!error}
+                  helperText={error}
+                />
+              )}
+              filterOptions={(options, state) => {
+                return searchOptions(state.inputValue)
+              }}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={option.id}
+                    label={getDisplayValue(option)}
+                    onDelete={() => {
+                      const updated = selectedContents.filter((_, i) => i !== index)
+                      handleFieldChange(
+                        field.name,
+                        updated.map((item) => item.id)
+                      )
+                    }}
+                  />
+                ))
+              }
+              noOptionsText="No matching items found"
+              sx={{ mb: 1 }}
+            />
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<CreateNewFolderIcon />}
+              onClick={() => {
+                // UI placeholder for creating new related content
+                alert(
+                  `Create new ${relatedContentType?.name || 'content'}. This would open a dialog to create new content.`
+                )
+              }}
             >
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
-              {relatedContents.map((relatedContent) => (
-                <MenuItem key={relatedContent.id} value={relatedContent.id}>
-                  {relatedContent.id.slice(-8)} -{' '}
-                  {Object.values(relatedContent)
-                    .slice(0, 2)
-                    .filter((v) => typeof v === 'string' && v.length < 50)
-                    .join(' - ') || 'Content'}
-                </MenuItem>
-              ))}
-            </Select>
-            {error && (
-              <Alert severity="error" sx={{ mt: 1 }}>
-                {error}
-              </Alert>
-            )}
-          </FormControl>
+              Create New {relatedContentType?.name || 'Content'}
+            </Button>
+          </Box>
         )
       case 'component':
         const component = field.componentId

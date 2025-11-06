@@ -8,6 +8,7 @@ export interface FieldValidation {
 export interface RelationConfig {
   contentTypeId: string
   relationType: 'oneToOne' | 'oneToMany' | 'manyToOne' | 'manyToMany'
+  displayField?: string // Field name to use for display in Autocomplete
 }
 
 export interface ComponentField {

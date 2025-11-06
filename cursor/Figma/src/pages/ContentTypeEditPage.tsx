@@ -22,6 +22,9 @@ import {
   Paper,
   Chip,
   Alert,
+  ToggleButtonGroup,
+  ToggleButton,
+  Divider,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -521,13 +524,18 @@ function ContentTypeEditPage(): JSX.Element {
                     label="Related Content Type"
                     onChange={(e) => {
                       const updatedField = { ...fieldDialog.field }
+                      const selectedContentType = contentStore.getContentType(e.target.value)
                       if (!updatedField?.relationConfig) {
                         updatedField.relationConfig = {
                           contentTypeId: e.target.value,
                           relationType: 'oneToOne',
+                          displayField: selectedContentType?.fields?.[0]?.name || '',
                         }
                       } else {
                         updatedField.relationConfig.contentTypeId = e.target.value
+                        // Reset display field when content type changes
+                        updatedField.relationConfig.displayField =
+                          selectedContentType?.fields?.[0]?.name || ''
                       }
                       setFieldDialog({ ...fieldDialog, field: updatedField as Field })
                     }}
@@ -547,26 +555,91 @@ function ContentTypeEditPage(): JSX.Element {
                     )}
                   </Select>
                 </FormControl>
-                <FormControl fullWidth>
-                  <InputLabel>Relation Type</InputLabel>
-                  <Select
+
+                {fieldDialog.field?.relationConfig?.contentTypeId && (
+                  <>
+                    <FormControl fullWidth>
+                      <InputLabel>Display Field</InputLabel>
+                      <Select
+                        value={fieldDialog.field?.relationConfig?.displayField || ''}
+                        label="Display Field"
+                        onChange={(e) => {
+                          const updatedField = { ...fieldDialog.field }
+                          if (updatedField?.relationConfig) {
+                            updatedField.relationConfig.displayField = e.target.value
+                          }
+                          setFieldDialog({ ...fieldDialog, field: updatedField as Field })
+                        }}
+                      >
+                        {contentStore
+                          .getContentType(fieldDialog.field.relationConfig.contentTypeId)
+                          ?.fields?.filter((f) =>
+                            ['text', 'email', 'number', 'date'].includes(f.type)
+                          )
+                          .map((field) => (
+                            <MenuItem key={field.name} value={field.name}>
+                              {field.label} ({field.name})
+                            </MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  </>
+                )}
+
+                <Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Relation Type
+                  </Typography>
+                  <ToggleButtonGroup
                     value={fieldDialog.field?.relationConfig?.relationType || 'oneToOne'}
-                    label="Relation Type"
-                    onChange={(e) => {
-                      const updatedField = { ...fieldDialog.field }
-                      if (updatedField?.relationConfig) {
-                        updatedField.relationConfig.relationType = e.target.value as any
+                    exclusive
+                    onChange={(_, newValue) => {
+                      if (newValue) {
+                        const updatedField = { ...fieldDialog.field }
+                        if (updatedField?.relationConfig) {
+                          updatedField.relationConfig.relationType = newValue
+                        }
+                        setFieldDialog({ ...fieldDialog, field: updatedField as Field })
                       }
-                      setFieldDialog({ ...fieldDialog, field: updatedField as Field })
                     }}
+                    fullWidth
                   >
                     {RELATION_TYPES.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
-                      </MenuItem>
+                      <ToggleButton key={type.value} value={type.value}>
+                        <Box sx={{ textAlign: 'center', py: 0.5 }}>
+                          <Typography variant="caption" display="block">
+                            {type.label.split(' ')[0]}
+                          </Typography>
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            {type.label.split(' ').slice(1).join(' ')}
+                          </Typography>
+                        </Box>
+                      </ToggleButton>
                     ))}
-                  </Select>
-                </FormControl>
+                  </ToggleButtonGroup>
+                </Box>
+
+                {/* Preview */}
+                {fieldDialog.field?.relationConfig && (
+                  <>
+                    <Divider sx={{ my: 2 }} />
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        Preview:
+                      </Typography>
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          This field will render as:{' '}
+                          {['oneToOne', 'manyToOne'].includes(
+                            fieldDialog.field.relationConfig.relationType
+                          )
+                            ? 'Single Select (Autocomplete)'
+                            : 'Multiple Select (Autocomplete Multiple)'}
+                        </Typography>
+                      </Paper>
+                    </Box>
+                  </>
+                )}
               </>
             )}
             {fieldDialog.field?.type === 'component' && (
