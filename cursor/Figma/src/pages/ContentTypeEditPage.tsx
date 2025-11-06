@@ -611,36 +611,46 @@ function ContentTypeEditPage(): JSX.Element {
               </>
             )}
             {fieldDialog.field?.type === 'dynamicZone' && (
-              <FormControl fullWidth>
-                <InputLabel>Available Components</InputLabel>
-                <Select
-                  multiple
-                  value={fieldDialog.field?.dynamicZoneConfig?.components || []}
-                  label="Available Components"
-                  onChange={(e) => {
-                    const componentIds = e.target.value as string[]
-                    const updatedField = { ...fieldDialog.field }
-                    updatedField!.dynamicZoneConfig = {
-                      components: componentIds,
+              <>
+                <FormControl fullWidth>
+                  <InputLabel>Available Components</InputLabel>
+                  <Select
+                    multiple
+                    value={fieldDialog.field?.dynamicZoneConfig?.components || []}
+                    label="Available Components"
+                    onChange={(e) => {
+                      const componentIds = e.target.value as string[]
+                      const updatedField = { ...fieldDialog.field }
+                      updatedField!.dynamicZoneConfig = {
+                        components: componentIds,
+                      }
+                      setFieldDialog({ ...fieldDialog, field: updatedField as Field })
+                    }}
+                    renderValue={(selected) =>
+                      (selected as string[])
+                        .map((id) => contentStore.getComponent(id)?.name || id)
+                        .join(', ')
                     }
-                    setFieldDialog({ ...fieldDialog, field: updatedField as Field })
-                  }}
-                  renderValue={(selected) =>
-                    (selected as string[])
-                      .map((id) => contentStore.getComponent(id)?.name || id)
-                      .join(', ')
-                  }
+                  >
+                    {contentStore.getAllComponents().map((component) => (
+                      <MenuItem key={component.id} value={component.id}>
+                        {component.name}
+                      </MenuItem>
+                    ))}
+                    {contentStore.getAllComponents().length === 0 && (
+                      <MenuItem disabled>No components available. Create components first.</MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setComponentDialogOpen(true)}
+                  fullWidth
                 >
-                  {contentStore.getAllComponents().map((component) => (
-                    <MenuItem key={component.id} value={component.id}>
-                      {component.name}
-                    </MenuItem>
-                  ))}
-                  {contentStore.getAllComponents().length === 0 && (
-                    <MenuItem disabled>No components available. Create components first.</MenuItem>
-                  )}
-                </Select>
-              </FormControl>
+                  Create New Component
+                </Button>
+              </>
             )}
           </Box>
         </DialogContent>
@@ -663,6 +673,15 @@ function ContentTypeEditPage(): JSX.Element {
           // Auto-select the newly created component if field type is component
           if (fieldDialog.field?.type === 'component') {
             handleFieldChange(fieldDialog.field, 'componentId', component.id)
+          }
+          // Auto-add to dynamic zone config if field type is dynamicZone
+          else if (fieldDialog.field?.type === 'dynamicZone') {
+            const currentComponents = fieldDialog.field?.dynamicZoneConfig?.components || []
+            const updatedField = { ...fieldDialog.field }
+            updatedField!.dynamicZoneConfig = {
+              components: [...currentComponents, component.id],
+            }
+            setFieldDialog({ ...fieldDialog, field: updatedField as Field })
           }
           setComponentDialogOpen(false)
         }}
