@@ -1,12 +1,14 @@
-import { ContentType, Content, ContentsMap } from '../types'
+import { ContentType, Content, ContentsMap, Component, ComponentsMap } from '../types'
 
 class ContentStore {
   private contentTypes: ContentType[]
   private contents: ContentsMap
+  private components: ComponentsMap
 
   constructor() {
     this.contentTypes = this.loadContentTypes()
     this.contents = this.loadContents()
+    this.components = this.loadComponents()
   }
 
   private loadContentTypes(): ContentType[] {
@@ -19,12 +21,21 @@ class ContentStore {
     return stored ? JSON.parse(stored) : {}
   }
 
+  private loadComponents(): ComponentsMap {
+    const stored = localStorage.getItem('components')
+    return stored ? JSON.parse(stored) : {}
+  }
+
   private saveContentTypes(): void {
     localStorage.setItem('contentTypes', JSON.stringify(this.contentTypes))
   }
 
   private saveContents(): void {
     localStorage.setItem('contents', JSON.stringify(this.contents))
+  }
+
+  private saveComponents(): void {
+    localStorage.setItem('components', JSON.stringify(this.components))
   }
 
   // Content Type operations
@@ -64,6 +75,37 @@ class ContentStore {
 
   getAllContentTypes(): ContentType[] {
     return this.contentTypes
+  }
+
+  // Component operations
+  createComponent(component: Omit<Component, 'id'>): Component {
+    const id = Date.now().toString()
+    const newComponent: Component = { ...component, id }
+    this.components[id] = newComponent
+    this.saveComponents()
+    return newComponent
+  }
+
+  updateComponent(id: string, updates: Partial<Component>): Component | null {
+    if (this.components[id]) {
+      this.components[id] = { ...this.components[id], ...updates }
+      this.saveComponents()
+      return this.components[id]
+    }
+    return null
+  }
+
+  deleteComponent(id: string): void {
+    delete this.components[id]
+    this.saveComponents()
+  }
+
+  getComponent(id: string): Component | undefined {
+    return this.components[id]
+  }
+
+  getAllComponents(): Component[] {
+    return Object.values(this.components)
   }
 
   // Content operations
@@ -141,4 +183,3 @@ class ContentStore {
 const contentStore = new ContentStore()
 
 export default contentStore
-

@@ -29,7 +29,8 @@ import EditIcon from '@mui/icons-material/Edit'
 import SaveIcon from '@mui/icons-material/Save'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import contentStore from '../store/contentStore'
-import { Field, ContentType } from '../types'
+import { Field, ContentType, RelationConfig, DynamicZoneConfig } from '../types'
+import ComponentManagerDialog from '../components/ComponentManagerDialog'
 
 interface FieldDialogState {
   open: boolean
@@ -53,6 +54,15 @@ const FIELD_TYPES = [
   { value: 'url', label: 'URL' },
   { value: 'textarea', label: 'Textarea' },
   { value: 'relation', label: 'Relation' },
+  { value: 'component', label: 'Component' },
+  { value: 'dynamicZone', label: 'Dynamic Zone' },
+] as const
+
+const RELATION_TYPES = [
+  { value: 'oneToOne', label: 'One to One' },
+  { value: 'oneToMany', label: 'One to Many' },
+  { value: 'manyToOne', label: 'Many to One' },
+  { value: 'manyToMany', label: 'Many to Many' },
 ] as const
 
 function ContentTypeEditPage(): JSX.Element {
@@ -74,6 +84,7 @@ function ContentTypeEditPage(): JSX.Element {
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [componentDialogOpen, setComponentDialogOpen] = useState(false)
 
   useEffect(() => {
     if (isEdit && id) {
@@ -147,6 +158,9 @@ function ContentTypeEditPage(): JSX.Element {
           min: '',
           max: '',
         },
+        relationConfig: undefined,
+        componentId: undefined,
+        dynamicZoneConfig: undefined,
       },
       index: -1,
       errors: {},
@@ -216,12 +230,37 @@ function ContentTypeEditPage(): JSX.Element {
           ...updatedField.validation,
           [child]: value,
         }
+      } else if (parent === 'relationConfig') {
+        updatedField.relationConfig = {
+          ...updatedField.relationConfig,
+          [child]: value,
+        } as RelationConfig
+      } else if (parent === 'dynamicZoneConfig') {
+        if (child === 'components') {
+          // Handle array of component IDs
+          const componentIds = String(value).split(',').map((id) => id.trim()).filter(Boolean)
+          updatedField.dynamicZoneConfig = {
+            ...updatedField.dynamicZoneConfig,
+            components: componentIds,
+          } as DynamicZoneConfig
+        }
       }
     } else {
       if (key === 'name' || key === 'label' || key === 'type' || key === 'defaultValue') {
         ;(updatedField as any)[key] = value
+        // Clear type-specific configs when type changes
+        if (key === 'type' && value !== field.type) {
+          delete updatedField.relationConfig
+          delete updatedField.componentId
+          delete updatedField.dynamicZoneConfig
+          delete updatedField.repeatable
+        }
       } else if (key === 'required') {
         updatedField.required = value as boolean
+      } else if (key === 'componentId') {
+        updatedField.componentId = value as string
+      } else if (key === 'repeatable') {
+        updatedField.repeatable = value as boolean
       }
     }
     setFieldDialog({ ...fieldDialog, field: updatedField })
@@ -301,6 +340,26 @@ function ContentTypeEditPage(): JSX.Element {
                       {field.defaultValue && (
                         <Typography variant="body2" color="text.secondary">
                           Default value: {field.defaultValue}
+                        </Typography>
+                      )}
+                      {field.type === 'relation' && field.relationConfig && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          Related to: {contentStore.getContentType(field.relationConfig.contentTypeId)?.name || 'Unknown'} (
+                          {RELATION_TYPES.find((t) => t.value === field.relationConfig?.relationType)?.label || field.relationConfig.relationType}
+                          )
+                        </Typography>
+                      )}
+                      {field.type === 'component' && field.componentId && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          Component: {contentStore.getComponent(field.componentId)?.name || 'Unknown'}
+                          {field.repeatable && (
+                            <Chip label="Repeatable" size="small" color="info" variant="outlined" sx={{ ml: 1 }} />
+                          )}
+                        </Typography>
+                      )}
+                      {field.type === 'dynamicZone' && field.dynamicZoneConfig && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          Components: {field.dynamicZoneConfig.components?.length || 0} component(s) configured
                         </Typography>
                       )}
                     </Box>
@@ -453,6 +512,136 @@ function ContentTypeEditPage(): JSX.Element {
                 />
               </>
             )}
+            {fieldDialog.field?.type === 'relation' && (
+              <>
+                <FormControl fullWidth>
+                  <InputLabel>Related Content Type</InputLabel>
+                  <Select
+                    value={fieldDialog.field?.relationConfig?.contentTypeId || ''}
+                    label="Related Content Type"
+                    onChange={(e) => {
+                      const updatedField = { ...fieldDialog.field }
+                      if (!updatedField?.relationConfig) {
+                        updatedField.relationConfig = {
+                          contentTypeId: e.target.value,
+                          relationType: 'oneToOne',
+                        }
+                      } else {
+                        updatedField.relationConfig.contentTypeId = e.target.value
+                      }
+                      setFieldDialog({ ...fieldDialog, field: updatedField as Field })
+                    }}
+                  >
+                    {contentStore
+                      .getAllContentTypes()
+                      .filter((ct) => ct.id !== id) // Exclude current Content Type to avoid circular reference
+                      .map((ct) => (
+                        <MenuItem key={ct.id} value={ct.id}>
+                          {ct.name}
+                        </MenuItem>
+                      ))}
+                    {contentStore
+                      .getAllContentTypes()
+                      .filter((ct) => ct.id !== id).length === 0 && (
+                      <MenuItem disabled>No other Content Types available</MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel>Relation Type</InputLabel>
+                  <Select
+                    value={fieldDialog.field?.relationConfig?.relationType || 'oneToOne'}
+                    label="Relation Type"
+                    onChange={(e) => {
+                      const updatedField = { ...fieldDialog.field }
+                      if (updatedField?.relationConfig) {
+                        updatedField.relationConfig.relationType = e.target.value as any
+                      }
+                      setFieldDialog({ ...fieldDialog, field: updatedField as Field })
+                    }}
+                  >
+                    {RELATION_TYPES.map((type) => (
+                      <MenuItem key={type.value} value={type.value}>
+                        {type.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            )}
+            {fieldDialog.field?.type === 'component' && (
+              <>
+                <FormControl fullWidth>
+                  <InputLabel>Component</InputLabel>
+                  <Select
+                    value={fieldDialog.field?.componentId || ''}
+                    label="Component"
+                    onChange={(e) => handleFieldChange(fieldDialog.field, 'componentId', e.target.value)}
+                  >
+                    {contentStore.getAllComponents().map((component) => (
+                      <MenuItem key={component.id} value={component.id}>
+                        {component.name}
+                      </MenuItem>
+                    ))}
+                    {contentStore.getAllComponents().length === 0 && (
+                      <MenuItem disabled>No components available. Create components first.</MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setComponentDialogOpen(true)}
+                  fullWidth
+                >
+                  Create New Component
+                </Button>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={fieldDialog.field?.repeatable || false}
+                      onChange={(e) => handleFieldChange(fieldDialog.field, 'repeatable', e.target.checked)}
+                    />
+                  }
+                  label="Repeatable (Multiple instances)"
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: -1, mb: 1 }}>
+                  If checked, this field will accept multiple component instances as an array
+                </Typography>
+              </>
+            )}
+            {fieldDialog.field?.type === 'dynamicZone' && (
+              <FormControl fullWidth>
+                <InputLabel>Available Components</InputLabel>
+                <Select
+                  multiple
+                  value={fieldDialog.field?.dynamicZoneConfig?.components || []}
+                  label="Available Components"
+                  onChange={(e) => {
+                    const componentIds = e.target.value as string[]
+                    const updatedField = { ...fieldDialog.field }
+                    updatedField!.dynamicZoneConfig = {
+                      components: componentIds,
+                    }
+                    setFieldDialog({ ...fieldDialog, field: updatedField as Field })
+                  }}
+                  renderValue={(selected) =>
+                    (selected as string[])
+                      .map((id) => contentStore.getComponent(id)?.name || id)
+                      .join(', ')
+                  }
+                >
+                  {contentStore.getAllComponents().map((component) => (
+                    <MenuItem key={component.id} value={component.id}>
+                      {component.name}
+                    </MenuItem>
+                  ))}
+                  {contentStore.getAllComponents().length === 0 && (
+                    <MenuItem disabled>No components available. Create components first.</MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -466,6 +655,18 @@ function ContentTypeEditPage(): JSX.Element {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ComponentManagerDialog
+        open={componentDialogOpen}
+        onClose={() => setComponentDialogOpen(false)}
+        onComponentCreated={(component) => {
+          // Auto-select the newly created component if field type is component
+          if (fieldDialog.field?.type === 'component') {
+            handleFieldChange(fieldDialog.field, 'componentId', component.id)
+          }
+          setComponentDialogOpen(false)
+        }}
+      />
     </Box>
   )
 }

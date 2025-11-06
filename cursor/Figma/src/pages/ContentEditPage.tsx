@@ -12,11 +12,21 @@ import {
   FormControlLabel,
   Checkbox,
   Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper,
+  Chip,
 } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
 import SaveIcon from '@mui/icons-material/Save'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import contentStore from '../store/contentStore'
 import { ContentType, Field, Content } from '../types'
+import ComponentField from '../components/ComponentField'
+import DynamicZoneField from '../components/DynamicZoneField'
 
 function ContentEditPage(): JSX.Element | null {
   const { contentTypeId, contentId } = useParams<{ contentTypeId: string; contentId: string }>()
@@ -57,6 +67,35 @@ function ContentEditPage(): JSX.Element | null {
           initialContent[field.name] = false
         } else if (field.type === 'number') {
           initialContent[field.name] = ''
+        } else if (field.type === 'component') {
+          // Initialize component - array if repeatable, object if single
+          if (field.repeatable) {
+            initialContent[field.name] = []
+          } else {
+            const component = field.componentId
+              ? contentStore.getComponent(field.componentId)
+              : null
+            if (component) {
+              const componentData: Record<string, any> = {}
+              component.fields.forEach((compField) => {
+                if (compField.defaultValue) {
+                  componentData[compField.name] = compField.defaultValue
+                } else if (compField.type === 'boolean') {
+                  componentData[compField.name] = false
+                } else if (compField.type === 'component' && compField.componentId) {
+                  componentData[compField.name] = {}
+                } else {
+                  componentData[compField.name] = ''
+                }
+              })
+              initialContent[field.name] = componentData
+            } else {
+              initialContent[field.name] = {}
+            }
+          }
+        } else if (field.type === 'dynamicZone') {
+          // Initialize dynamic zone as empty array
+          initialContent[field.name] = []
         } else {
           initialContent[field.name] = ''
         }
@@ -224,16 +263,164 @@ function ContentEditPage(): JSX.Element | null {
           />
         )
       case 'relation':
+        const relatedContentType = field.relationConfig
+          ? contentStore.getContentType(field.relationConfig.contentTypeId)
+          : null
+        const relatedContents = relatedContentType
+          ? contentStore.getAllContents(relatedContentType.id)
+          : []
+
         return (
-          <TextField
-            fullWidth
+          <FormControl fullWidth required={field.required} error={!!error}>
+            <InputLabel>{field.label}</InputLabel>
+            <Select
+              value={value || ''}
+              label={field.label}
+              onChange={(e) => handleFieldChange(field.name, e.target.value)}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {relatedContents.map((relatedContent) => (
+                <MenuItem key={relatedContent.id} value={relatedContent.id}>
+                  {relatedContent.id.slice(-8)} -{' '}
+                  {Object.values(relatedContent)
+                    .slice(0, 2)
+                    .filter((v) => typeof v === 'string' && v.length < 50)
+                    .join(' - ') || 'Content'}
+                </MenuItem>
+              ))}
+            </Select>
+            {error && (
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {error}
+              </Alert>
+            )}
+          </FormControl>
+        )
+      case 'component':
+        const component = field.componentId
+          ? contentStore.getComponent(field.componentId)
+          : null
+
+        if (!component) {
+          return (
+            <Alert severity="warning">
+              Component not found. Please configure the component for this field.
+            </Alert>
+          )
+        }
+
+        // If repeatable, render as array of components
+        if (field.repeatable) {
+          const componentArray = Array.isArray(value) ? value : []
+          
+          return (
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                {field.label}
+                {field.required && <Typography component="span" color="error"> *</Typography>}
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {componentArray.map((item: Record<string, any>, index: number) => (
+                  <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 2,
+                      }}
+                    >
+                      <Chip
+                        label={`${component.name} ${index + 1}`}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          const updated = componentArray.filter((_: any, i: number) => i !== index)
+                          handleFieldChange(field.name, updated)
+                        }}
+                        color="error"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                    <ComponentField
+                      component={component}
+                      value={item || {}}
+                      onChange={(val) => {
+                        const updated = [...componentArray]
+                        updated[index] = val
+                        handleFieldChange(field.name, updated)
+                      }}
+                    />
+                  </Paper>
+                ))}
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => {
+                    const newItem: Record<string, any> = {}
+                    component.fields.forEach((compField) => {
+                      if (compField.defaultValue) {
+                        newItem[compField.name] = compField.defaultValue
+                      } else if (compField.type === 'boolean') {
+                        newItem[compField.name] = false
+                      } else if (compField.type === 'component' && compField.componentId) {
+                        newItem[compField.name] = {}
+                      } else {
+                        newItem[compField.name] = ''
+                      }
+                    })
+                    const updated = [...componentArray, newItem]
+                    handleFieldChange(field.name, updated)
+                  }}
+                  fullWidth
+                >
+                  Add {component.name}
+                </Button>
+              </Box>
+              {error && (
+                <Alert severity="error" sx={{ mt: 1 }}>
+                  {error}
+                </Alert>
+              )}
+            </Box>
+          )
+        }
+
+        // Single component instance
+        return (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <ComponentField
+              field={field}
+              component={component}
+              value={value || {}}
+              onChange={(val) => handleFieldChange(field.name, val)}
+              error={error}
+            />
+          </Paper>
+        )
+      case 'dynamicZone':
+        const dynamicZoneConfig = field.dynamicZoneConfig
+        const availableComponents = dynamicZoneConfig?.components
+          ? dynamicZoneConfig.components
+              .map((id) => contentStore.getComponent(id))
+              .filter(Boolean)
+          : []
+
+        return (
+          <DynamicZoneField
             label={field.label}
-            value={value || ''}
-            onChange={(e) => handleFieldChange(field.name, e.target.value)}
-            placeholder="Enter relation ID"
+            value={value || []}
+            onChange={(val) => handleFieldChange(field.name, val)}
+            availableComponents={availableComponents}
+            error={error}
             required={field.required}
-            error={!!error}
-            helperText={error}
           />
         )
       default:
